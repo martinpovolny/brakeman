@@ -184,6 +184,7 @@ class Brakeman::BaseProcessor < Brakeman::SexpProcessor
     render_type, value, rest = find_render_type exp, in_view
     rest = process rest
     result = Sexp.new(:render, render_type, value, rest)
+    #binding.pry
     result.line(exp.line)
     result
   end

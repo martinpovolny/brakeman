@@ -34,7 +34,10 @@ class Brakeman::BaseCheck < Brakeman::SexpProcessor
     @active_record_models = nil
     @mass_assign_disabled = nil
     @has_user_input = nil
+    #@safe_input_attributes = Set[:to_i, :to_f, :arel_table, :id, :j, :escape_javascript]
     @safe_input_attributes = Set[:to_i, :to_f, :arel_table, :id]
+
+    #process_render_updates
   end
 
   #Add result to result list, which is used to check for duplicates
@@ -57,6 +60,7 @@ class Brakeman::BaseCheck < Brakeman::SexpProcessor
   #Default Sexp processing. Iterates over each value in the Sexp
   #and processes them if they are also Sexps.
   def process_default exp
+    #binding.pry
     exp.each_with_index do |e, i|
       if sexp? e
         process e
@@ -75,15 +79,19 @@ class Brakeman::BaseCheck < Brakeman::SexpProcessor
 
     target = exp.target
 
-    unless @safe_input_attributes.include? exp.method
-      if params? target
-        @has_user_input = Match.new(:params, exp)
-      elsif cookies? target
-        @has_user_input = Match.new(:cookies, exp)
-      elsif request_env? target
-        @has_user_input = Match.new(:request, exp)
-      elsif sexp? target and model_name? target[1] #TODO: Can this be target.target?
-        @has_user_input = Match.new(:model, exp)
+    if [:j, :escape_javascript].include?(exp.method)
+      @has_user_input = false
+    else
+      unless @safe_input_attributes.include? exp.method
+        if params? target
+          @has_user_input = Match.new(:params, exp)
+        elsif cookies? target
+          @has_user_input = Match.new(:cookies, exp)
+        elsif request_env? target
+          @has_user_input = Match.new(:request, exp)
+        elsif sexp? target and model_name? target[1] #TODO: Can this be target.target?
+          @has_user_input = Match.new(:model, exp)
+        end
       end
     end
 
@@ -120,7 +128,33 @@ class Brakeman::BaseCheck < Brakeman::SexpProcessor
     process_default exp
   end
 
+  #def process_iter exp
+  #  binding.pry
+  #  if (exp.block_call[2] == :render) && (exp.block_call[3][1] == :update)
+  #    process_render_update(exp[2][1], exp[3])
+  #  end
+  #  super
+  #end
+
   private
+
+  #def process_render_updates
+  #  @tracker.render_updates.each do |var, block|
+  #    process_render_update(var, block)
+  #  end
+  #end
+
+  #def process_render_update(var, block)
+  #  binding.pry
+  #  block.each do |expr|
+  #    if expr[0]    == :call &&
+  #       expr[1][0] == :lvar && expr[1][1] == var &&
+  #       expr[2]    == :<< &&
+  #       has_immediate_user_input?(expr[3])
+  #      binding.pry
+  #    end
+  #  end
+  #end
 
   #Report a warning
   def warn options

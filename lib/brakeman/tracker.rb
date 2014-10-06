@@ -12,6 +12,8 @@ class Brakeman::Tracker
     :template_cache, :options, :filter_cache, :start_time, :end_time,
     :duration, :ignored_filter
 
+  attr_accessor :render_updates
+
   #Place holder when there should be a model, but it is not
   #clear what model it will be.
   UNKNOWN_MODEL = :BrakemanUnresolvedModel
@@ -21,6 +23,8 @@ class Brakeman::Tracker
   #The Processor argument is only used by other Processors
   #that might need to access it.
   def initialize(app_tree, processor = nil, options = {})
+    @render_updates = []
+
     @app_tree = app_tree
     @processor = processor
     @options = options

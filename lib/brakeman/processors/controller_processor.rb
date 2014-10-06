@@ -22,7 +22,7 @@ class Brakeman::ControllerProcessor < Brakeman::BaseProcessor
 
   #s(:class, NAME, PARENT, s(:scope ...))
   def process_class exp
-    name = class_name(exp.class_name)
+    @class_name = name = class_name(exp.class_name)
     parent = class_name(exp.parent_name)
 
     #If inside a real controller, treat any other classes as libraries.
@@ -183,6 +183,7 @@ class Brakeman::ControllerProcessor < Brakeman::BaseProcessor
 
       exp
     elsif target == nil and method == :render
+      #binding.pry
       make_render exp
     elsif exp == FORMAT_HTML and context[1] != :iter
       #This is an empty call to
@@ -246,12 +247,90 @@ class Brakeman::ControllerProcessor < Brakeman::BaseProcessor
     res
   end
 
+  def process_render_update(var, block)
+    #binding.pry
+    #block.each do |expr|
+    #  if expr[0]    == :call &&
+    #     expr[1][0] == :lvar && expr[1][1] == var &&
+    #     expr[2]    == :<< &&
+    #     has_immediate_user_input?(expr[3])
+    #    binding.pry
+    #  end
+    #end
+    @tracker.render_updates << [var, block, @class_name, @current_method]
+  end
+
+  #def has_immediate_user_input? exp
+  #  @safe_input_attributes = Set[:to_i, :to_f, :arel_table, :id]
+
+  #  if exp.nil?
+  #    false
+  #  elsif call? exp and not @safe_input_attributes.include? exp.method
+  #    if params? exp
+  #      return Match.new(:params, exp)
+  #    elsif cookies? exp
+  #      return Match.new(:cookies, exp)
+  #    elsif request_env? exp
+  #      return Match.new(:request, exp)
+  #    else
+  #      has_immediate_user_input? exp.target
+  #    end
+  #  elsif sexp? exp
+  #    case exp.node_type
+  #    when :string_interp
+  #      exp.each do |e|
+  #        if sexp? e
+  #          match = has_immediate_user_input?(e)
+  #          return match if match
+  #        end
+  #      end
+  #      false
+  #    when :string_eval
+  #      if sexp? exp.value
+  #        if exp.value.node_type == :rlist
+  #          exp.value.each_sexp do |e|
+  #            match = has_immediate_user_input?(e)
+  #            return match if match
+  #          end
+  #          false
+  #        else
+  #          has_immediate_user_input? exp.value
+  #        end
+  #      end
+  #    when :format
+  #      has_immediate_user_input? exp.value
+  #    when :if
+  #      (sexp? exp.then_clause and has_immediate_user_input? exp.then_clause) or
+  #      (sexp? exp.else_clause and has_immediate_user_input? exp.else_clause)
+  #    when :or
+  #      has_immediate_user_input? exp.lhs or
+  #      has_immediate_user_input? exp.rhs
+  #    else
+  #      false
+  #    end
+  #  end
+  #end
+
   #Look for before_filters and add fake ones if necessary
   def process_iter exp
     block_call_name = exp.block_call.method
     if block_call_name == :before_filter  or block_call_name == :before_action
       add_fake_filter exp
     else
+      # [1] pry(#<Brakeman::ControllerProcessor>)> exp
+      # => s(:iter,
+      #  s(:call, nil, :render, s(:lit, :update)),
+      #   s(:args, :page),
+      #    s(:call,
+      #      s(:lvar, :page),
+      #        :<<,
+      #          s(:call, s(:call, nil, :params), :[], s(:lit, :id))))
+
+      if (exp.block_call[2] == :render) && (exp.block_call[3][1] == :update)
+        #binding.pry
+        process_render_update(exp[2][1], exp[3])
+        #@tracker.render_updates << [exp[2][1], exp[3]]
+      end
       super
     end
   end

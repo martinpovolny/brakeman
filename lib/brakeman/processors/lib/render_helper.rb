@@ -1,4 +1,5 @@
 require 'digest/sha1'
+require 'pry'
 
 #Processes a call to render() in a controller or template
 module Brakeman::RenderHelper
@@ -19,9 +20,22 @@ module Brakeman::RenderHelper
     when :partial, :layout
       process_partial exp[2], exp[3]
     when :nothing
+    when :update
+      #binding.pry
+      # [1] pry(#<Brakeman::ControllerAliasProcessor>)> exp
+      # => s(:render, :update, nil, s(:arglist))
+      #
+      # # find block
+      # # incide block find '<<' calls on iter. variable
+      #     if input = has_immediate_user_input?(result[:call].first_arg)
+      #
+      #process_update
     end
     exp
   end
+
+  #def process_update
+  #end
 
   #Processes layout
   def process_layout name = nil

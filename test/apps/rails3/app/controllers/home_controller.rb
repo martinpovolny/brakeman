@@ -1,7 +1,179 @@
 class HomeController < ApplicationController
   before_filter :filter_it, :only => :test_filter
+  include JavaScriptHelper
 
-  def index
+#  def index # OK
+#    bar = 1
+#    render :update do |page|
+#      page << params[:id]
+#      page << bar
+#      1+1
+#      page << "foo"
+#    end
+#  end
+#
+#  def index0 # OK
+#    render :update do |page|
+#      page << params[:foo]
+#    end
+#  end
+#
+#  def index1 # OK
+#    render :update do |page|
+#      page << j(params[:foo])
+#    end
+#  end
+#
+#  def index2 # OK
+#    render :update do |page|
+#      page << escape_javascript(params[:foo])
+#    end
+#  end
+#
+#  def index3 # OK
+#    render :update do |page|
+#      page << "foo: #{params[:foo]}"
+#    end
+#  end
+#
+#  def index4 # OK
+#    render :update do |page|
+#      page << "foo:" + params[:foo]
+#    end
+#  end
+#
+#  def index5 # OK
+#    render :update do |page|
+#      foo = params[:foo]
+#      page << "foo" + foo
+#    end
+#  end
+#
+#  def index6 # OK
+#    if params[:id] == 1
+#      render :update do |page|
+#        page << params[:foo]
+#      end
+#    else
+#      render :update do |page|
+#        page << j(params[:foo])
+#      end
+#    end
+#  end
+#
+#  def index7
+#    10.times do |i|
+#      render :update do |page|
+#        page << params[:foo]
+#      end
+#    end
+#
+#    [1,2,3].each do |e|
+#      render :update do |page|
+#        page << "foo: #{params[:foo]}"
+#      end
+#    end
+#  end
+#
+#  def ce_select
+#    ce_get_form_vars
+#    if params[:id] == "new"
+#      render :update do |page|                    # Use JS to update the display
+#        page.replace("flash_msg_div", :partial=>"layouts/flash_msg")
+#        page.replace("classification_entries_div", :partial=>"classification_entries", :locals=>{:entry=>"new", :edit=>true})
+#        page << "$('entry_name').focus();"
+#        page << "$('entry_name').select();"
+#      end
+#      session[:entry] = "new"
+#    else
+#      entry = Classification.find(params[:id])
+#      render :update do |page|                    # Use JS to update the display
+#        page.replace("flash_msg_div", :partial=>"layouts/flash_msg")
+#        page.replace("classification_entries_div", :partial=>"classification_entries", :locals=>{:entry=>entry, :edit=>true})
+#        page << "$('entry_#{j_str(params[:field])}').focus();"
+#        page << "$('entry_#{j_str(params[:field])}').select();"
+#      end
+#      session[:entry] = entry
+#    end
+#  end
+
+  def else_test
+    render :update do |page|
+      page << 'foo'
+      page << 'bar'
+      page << "$('entry_#{params[:field1]}').select();"
+    end
+    #if params[:edit_entry] == "edit_file"
+    #  render :update do |page|
+    #    page << "$('entry_#{params[:field]}').focus();"
+    #    page << "$('entry_#{params[:field]}').select();"
+    #  end
+    #elsif params[:edit_entry] == "edit_registry"
+    #  render :update do |page|
+    #    page << "$('entry_#{params[:field1]}').focus();"
+    #    page << "$('entry_#{params[:field1]}').select();"
+    #  end
+    #else
+    #  render :update do |page|
+    #    page << 'foo'
+    #    page << "$('entry_#{params[:field2]}').focus();"
+    #    page << "$('entry_#{params[:field2]}').select();"
+    #  end
+    #end
+  end
+
+  def ap_ce_select
+    return unless load_edit("ap_edit__#{params[:id]}","replace_cell__explorer")
+    ap_get_form_vars
+    if params[:edit_entry] == "edit_file"
+      session[:edit_filename] = params[:file_name]
+      render :update do |page|                    # Use JS to update the display
+        page.replace("flash_msg_div", :partial=>"layouts/flash_msg")
+        page.replace_html("ap_form_div", :partial=>"ap_form", :locals=>{:entry=>session[:edit_filename], :edit=>true})
+        page << "$('entry_#{params[:field]}').focus();"
+        page << "$('entry_#{params[:field]}').select();"
+      end
+    elsif params[:edit_entry] == "edit_registry"
+      session[:reg_data] = Hash.new
+      session[:reg_data][:key] = params[:reg_key]  if params[:reg_key]
+      session[:reg_data][:value] = params[:reg_value] if params[:reg_value]
+      render :update do |page|                    # Use JS to update the display
+        page.replace("flash_msg_div", :partial=>"layouts/flash_msg")
+        page.replace("ap_form_div", :partial=>"ap_form", :locals=>{:entry=>session[:reg_data], :edit=>true})
+        page << "$('entry_#{params[:field]}').focus();"
+        page << "$('entry_#{params[:field]}').select();"
+      end
+    elsif params[:edit_entry] == "edit_nteventlog"
+      session[:nteventlog_data] = Hash.new
+      session[:nteventlog_entries].sort_by { |r| r[:name] }.each_with_index do |nteventlog,i|
+        if i == params[:entry_id].to_i
+          session[:nteventlog_data][:selected] = i
+          session[:nteventlog_data][:name] = nteventlog[:name]
+          session[:nteventlog_data][:message] = nteventlog[:filter][:message]
+          session[:nteventlog_data][:level] = nteventlog[:filter][:level]
+          session[:nteventlog_data][:num_days] = nteventlog[:filter][:num_days].to_i
+          #session[:nteventlog_data][:rec_count] = nteventlog[:filter][:rec_count].to_i
+          session[:nteventlog_data][:source] = nteventlog[:filter][:source]
+        end
+      end
+
+      render :update do |page|                    # Use JS to update the display
+        page.replace("flash_msg_div", :partial=>"layouts/flash_msg")
+        page.replace("ap_form_div", :partial=>"ap_form", :locals=>{:entry=>session[:nteventlog_data], :edit=>true})
+        page << "$('entry_#{params[:field]}').focus();"
+        page << "$('entry_#{params[:field]}').select();"
+      end
+    else
+      session[:edit_filename] = ""
+      session[:reg_data] = Hash.new
+      session[:nteventlog_data] = Hash.new
+      render :update do |page|                    # Use JS to update the display
+        page.replace("flash_msg_div", :partial=>"layouts/flash_msg")
+        page.replace("ap_form_div", :partial=>"ap_form", :locals=>{:entry=>"new", :edit=>true})
+        page << "$('entry_name').focus();"
+        page << "$('entry_name').select();"
+      end
+    end
   end
 
   def test_params
@@ -146,7 +318,7 @@ class HomeController < ApplicationController
     Open3.capture2 "ls #{params[:dir]}"
     Open3.capture2e "ls #{params[:dir]}"
     Open3.capture3 "ls #{params[:dir]}"
-    Open3.pipeline "sort", "uniq", :in => params[:file] 
+    Open3.pipeline "sort", "uniq", :in => params[:file]
     Open3.pipeline_r "sort #{params[:file]}", "uniq"
     Open3.pipeline_rw params[:cmd], "sort -g"
     Open3.pipeline_start *params[:cmds]
