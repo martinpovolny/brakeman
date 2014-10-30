@@ -12,12 +12,62 @@ class Brakeman::ControllerProcessor < Brakeman::BaseProcessor
     @current_module = nil
     @visibility = :public
     @file_name = nil
+    @included_into = nil
   end
 
   #Use this method to process a Controller
   def process_controller src, file_name = nil
     @file_name = file_name
     process src
+  end
+
+  def process_included_module src, file_name, included_into
+    # TODO: setup env. so that after hitting into the first 'module' keyword
+    # we would pretend to be inside the class that we got in 'included_into'
+    # further modules and classes we encouter shall be handled the same way
+    # they are handled in a class
+    @included_into = included_into
+    @file_name = file_name
+
+    outer_class = nil
+    name        = included_into # FIXME: module name? or class name? incl. '::'
+    parent      = nil # FIXME
+
+    #process src
+    process_internal name, outer_class, src, parent
+  end
+
+  def process_internal name, outer_class, exp, parent
+    if @tracker.controllers[name.to_sym]
+      @current_class = @tracker.controllers[name]
+      @current_class[:files] << @file_name unless @current_class[:files].include? @file_name
+      @current_class[:src][@file_name] = exp
+    else
+      @current_class = {
+        :name => name,
+        :parent => parent,
+        :includes => [],
+        :public => {},
+        :private => {},
+        :protected => {},
+        :options => {:before_filters => []},
+        :src => { @file_name => exp },
+        :files => [ @file_name ]
+      }
+
+      @tracker.controllers[name] = @current_class
+    end
+
+    exp.body = process_all! exp.body
+    set_layout_name
+
+    if outer_class
+      @current_class = outer_class
+    else
+      @current_class = nil
+    end
+
+    exp
   end
 
   #s(:class, NAME, PARENT, s(:scope ...))
@@ -55,39 +105,12 @@ class Brakeman::ControllerProcessor < Brakeman::BaseProcessor
       name = (@current_module[:name].to_s + "::" + name.to_s).to_sym
     end
 
-    if @tracker.controllers[name]
-      @current_class = @tracker.controllers[name]
-      @current_class[:files] << @file_name unless @current_class[:files].include? @file_name
-      @current_class[:src][@file_name] = exp
-    else
-      @current_class = {
-        :name => name,
-        :parent => parent,
-        :includes => [],
-        :public => {},
-        :private => {},
-        :protected => {},
-        :options => {:before_filters => []},
-        :src => { @file_name => exp },
-        :files => [ @file_name ]
-      }
-
-      @tracker.controllers[name] = @current_class
-    end
-
-    exp.body = process_all! exp.body
-    set_layout_name
-
-    if outer_class
-      @current_class = outer_class
-    else
-      @current_class = nil
-    end
-
-    exp
+    process_internal name, outer_class, exp, parent
   end
 
   def process_module exp, parent = nil
+    # FIXME: in this is the top-level module and we where provided a controller
+    # class that we are included into, then process as we would in process_class
     name = class_name(exp.module_name)
 
     if @current_module
@@ -156,7 +179,10 @@ class Brakeman::ControllerProcessor < Brakeman::BaseProcessor
       else
         case method
         when :include
-          @current_class[:includes] << class_name(first_arg) if @current_class
+          if @current_class
+            @current_class[:includes] << class_name(first_arg)
+            @app_tree.record_inclusion(@current_class[:name], class_name(first_arg))
+          end
         when :before_filter, :append_before_filter, :before_action, :append_before_action
           @current_class[:options][:before_filters] << exp.args
         when :prepend_before_filter, :prepend_before_action

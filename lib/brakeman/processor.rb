@@ -36,10 +36,29 @@ module Brakeman
       RoutesProcessor.new(@tracker).process_routes src
     end
 
+    def contains_included_module?(src)
+      todo = [src]
+
+      until todo.empty?
+        current = todo.shift
+
+        if node_type? current, :module # FIXME: we check only first module
+          return @app_tree.is_module_included?(current[1])
+        elsif sexp? current
+          todo = current[1..-1].concat todo
+        end
+      end
+
+      false
+    end
+
     #Process controller source. +file_name+ is used for reporting
     def process_controller src, file_name
+      # FIXME: process modules included in the controllers the same way as controllers
       if contains_class? src
         ControllerProcessor.new(@app_tree, @tracker).process_controller src, file_name
+      elsif included_into = contains_included_module?(src)
+        ControllerProcessor.new(@app_tree, @tracker).process_included_module src, file_name, included_into
       else
         LibraryProcessor.new(@tracker).process_library src, file_name
       end

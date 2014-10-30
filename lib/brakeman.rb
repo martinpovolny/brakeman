@@ -1,6 +1,7 @@
 require 'rubygems'
 require 'yaml'
 require 'set'
+require 'pry'
 
 module Brakeman
 

@@ -22,6 +22,7 @@ module Brakeman
       @root = root
       @skip_files = init_options[:skip_files]
       @only_files = init_options[:only_files]
+      @includes = {}
     end
 
     def expand_path(path)
@@ -54,7 +55,7 @@ module Brakeman
     end
 
     def controller_paths
-      @controller_paths ||= find_paths("app/controllers")
+      @controller_paths ||= find_paths_ordered("app/controllers")
     end
 
     def model_paths
@@ -74,7 +75,31 @@ module Brakeman
       @lib_files ||= find_paths("lib").reject { |path| path.include? "/generators/" }
     end
 
+    def record_inclusion(included_into, module_name)
+      @includes[module_name] ||= []
+      @includes[module_name] << included_into
+    end
+
+    def is_module_included?(module_name)
+      @includes.key?(module_name) ? @includes[module_name][0] : nil
+    end
+
+    def included_into(module_name)
+      @included_into[module_name][0]
+    end
+
   private
+
+    def find_paths_ordered(directory, extensions = "*.rb")
+      pref_pattern = @root + "/{engines/*/,}#{directory}/#{extensions}"
+      pref_files = select_files(Dir.glob(pref_pattern).sort)
+
+      pattern = @root + "/{engines/*/,}#{directory}/**/#{extensions}"
+      files = select_files(Dir.glob(pattern).sort)
+
+      delta = files - pref_files
+      pref_files + delta
+    end
 
     def find_paths(directory, extensions = "*.rb")
       pattern = @root + "/{engines/*/,}#{directory}/**/#{extensions}"
