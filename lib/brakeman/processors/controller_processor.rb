@@ -178,6 +178,11 @@ class Brakeman::ControllerProcessor < Brakeman::BaseProcessor
         end
       else
         case method
+        when :include_concern
+          if @current_class
+            @current_class[:includes] << first_arg.to_sym
+            @app_tree.record_inclusion(@current_class[:name], first_arg.to_sym)
+          end
         when :include
           if @current_class
             @current_class[:includes] << class_name(first_arg)

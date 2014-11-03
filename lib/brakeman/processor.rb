@@ -43,7 +43,9 @@ module Brakeman
         current = todo.shift
 
         if node_type? current, :module # FIXME: we check only first module
-          return @app_tree.is_module_included?(current[1])
+          # FIXME: ignoring namespaces
+          module_name = current[1].kind_of?(Sexp) ? current[1][-1] : current[1]
+          return @app_tree.is_module_included?(module_name)
         elsif sexp? current
           todo = current[1..-1].concat todo
         end
